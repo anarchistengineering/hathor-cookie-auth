@@ -1,3 +1,4 @@
+const Joi = require('joi');
 const bcrypt = require('bcryptjs');
 const {
   isHtmlPage
@@ -102,6 +103,33 @@ module.exports = {
       {
         method: 'POST',
         path: config.get('loginPath', '/login'),
+        config: {
+          description: 'Validates login credentials',
+          notes: 'Validates login credentials (username and password) contained in the payload, on scucess sets a browser cookie for authentication and returns a redirect to '+(loginLandingPage||'/')+'.',
+          tags: ['api'],
+          validate: {
+            payload: Joi.object().keys({
+              username: Joi.string().required(),
+              password: Joi.string().required()
+            })
+          },
+          response: {
+            schema: Joi.description('Redirect to '+(loginLandingPage||'/')),
+            status: {
+              200: Joi.description('Redirect to '+(loginLandingPage||'/')),
+              400: Joi.object().keys({
+                statusCode: Joi.number().default(400),
+                error: Joi.string().default('Bad Request'),
+                message: Joi.string().default('child "username" fails because ["username" is required]'),
+                validation: {
+                  source: Joi.string().default('payload'),
+                  keys: Joi.array().items(Joi.string()).default(['username'])
+                }
+              }).description('Required fields missing'),
+              401: Joi.string().description('Invalid reason')
+            }
+          }
+        },
         handler(req, reply){
           const {
             username,
@@ -135,6 +163,11 @@ module.exports = {
       {
         method: ['GET', 'POST'],
         path: logoutPath || '/logout',
+        config: {
+          tags: ['api'],
+          description: 'Perform logout process',
+          notes: 'Clears browser cookie and logs user out. Returns a redirect to '+(logoutRedirectTo || '/'),
+        },
         handler(req, reply){
           req.cookieAuth.clear();
           return reply.redirect(logoutRedirectTo || '/');
